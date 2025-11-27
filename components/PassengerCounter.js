@@ -1,81 +1,97 @@
+// components/PassengerCounter.js
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import COLORS from "../constants/colors";
 
 export default function PassengerCounter({ value, onChange }) {
-  const dec = () => onChange(Math.max(1, value - 1));
-  const inc = () => onChange(Math.min(6, value + 1)); // tope opcional
+  const handleChange = (delta) => {
+    let next = value + delta;
+    if (next < 1) next = 1;
+    if (next > 8) next = 8; // límite razonable
+    onChange(next);
+  };
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.box}>
-        <TouchableOpacity style={styles.round} onPress={dec}>
-          <Ionicons name="remove" size={18} color={COLORS.text} />
-        </TouchableOpacity>
-
-        <View style={styles.center}>
-          <View style={styles.titleRow}>
-            <Ionicons name="person-outline" size={18} color={COLORS.text} />
-            <Text style={styles.label}>Pasajeros</Text>
-          </View>
-          <Text style={styles.count}>{value}</Text>
+    <View style={styles.wrapper}>
+      <View style={styles.chip}>
+        <View style={styles.left}>
+          <Ionicons name="people-outline" size={18} color="#0f172a" />
+          <Text style={styles.label}>Pasajeros</Text>
         </View>
 
-        <TouchableOpacity style={styles.round} onPress={inc}>
-          <Ionicons name="add" size={18} color={COLORS.text} />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.right}>
+          <TouchableOpacity
+            style={styles.circleBtn}
+            onPress={() => handleChange(-1)}
+          >
+            <Text style={styles.circleText}>-</Text>
+          </TouchableOpacity>
 
-      <View style={styles.shadow} />
+          <Text style={styles.count}>{value}</Text>
+
+          <TouchableOpacity
+            style={styles.circleBtn}
+            onPress={() => handleChange(1)}
+          >
+            <Text style={styles.circleText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { },
-box: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  backgroundColor: "#fff",
-  borderRadius: 16,
-  paddingHorizontal: 12,
-  paddingVertical: 10,
-  borderWidth: 0,
-
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.25,
-  shadowRadius: 14,
-  elevation: 12,
-
-
+  wrapper: {
+    marginBottom: 12,
   },
-  round: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "#f1f5f9",
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#ffffff",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  left: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  right: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  circleBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#eef2ff",
     alignItems: "center",
     justifyContent: "center",
   },
-  center: { alignItems: "center", justifyContent: "center" },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
-  label: { color: COLORS.text, fontSize: 16, fontWeight: "700" },
-  count: { color: COLORS.text, fontSize: 18, fontWeight: "800", lineHeight: 22 },
-  shadow: {
-    position: "absolute",
-    left: 8,
-    right: 8,
-    bottom: -6,
-    height: 10,
-    borderRadius: 16,
-    backgroundColor: "#0000",
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+  circleText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  count: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+    minWidth: 16,
+    textAlign: "center",
   },
 });

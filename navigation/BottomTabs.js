@@ -1,15 +1,27 @@
 // navigation/BottomTabs.js
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 
 import HomePassenger from "../screens/passenger/HomePassenger";
+import AddTripScreen from "../screens/driver/AddTripScreen";
 import Trips from "../screens/passenger/Trips";
+import TripDetail from "../screens/passenger/TripDetail";
 import Chats from "../screens/passenger/Chats";
 import Profile from "../screens/passenger/Profile";
-import AddTripScreen from "../screens/driver/AddTripScreen";
 
 const Tab = createBottomTabNavigator();
+const TripsStack = createNativeStackNavigator();
+
+function TripsNavigator() {
+  return (
+    <TripsStack.Navigator screenOptions={{ headerShown: false }}>
+      <TripsStack.Screen name="Trips" component={Trips} />
+      <TripsStack.Screen name="TripDetail" component={TripDetail} />
+    </TripsStack.Navigator>
+  );
+}
 
 export default function BottomTabs() {
   return (
@@ -82,9 +94,8 @@ export default function BottomTabs() {
       })}
     >
       <Tab.Screen name="Inicio" component={HomePassenger} />
-      {/* 👉 El tab del + ahora abre la pantalla con el diseño de conductor */}
       <Tab.Screen name="Agregar" component={AddTripScreen} />
-      <Tab.Screen name="Viajes" component={Trips} />
+      <Tab.Screen name="Viajes" component={TripsNavigator} />
       <Tab.Screen name="Chats" component={Chats} />
       <Tab.Screen name="Perfil" component={Profile} />
     </Tab.Navigator>

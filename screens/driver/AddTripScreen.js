@@ -9,10 +9,14 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  ImageBackground,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import COLORS from "../../constants/colors";
+import PassengerCounter from "../../components/PassengerCounter";
+import { useTrips } from "../../context/TripsContext";
+import { images } from "../../assets";
 
 const PRIMARY = COLORS?.primary ?? "#6C5ED7";
 
@@ -24,18 +28,16 @@ export default function AddTripScreen() {
   const [time, setTime] = useState("");
   const [seats, setSeats] = useState(1);
 
-  const [trips, setTrips] = useState([]);
-
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState("date");
 
-  // abrir picker
+  const { addTrip } = useTrips();
+
   const openPicker = (mode) => {
     setPickerMode(mode);
     setShowPicker(true);
   };
 
-  // cuando el usuario elige fecha/hora
   const onChangePicker = (event, selectedDate) => {
     if (event.type === "dismissed") {
       setShowPicker(false);
@@ -67,11 +69,12 @@ export default function AddTripScreen() {
       date,
       time,
       seats,
+      driverName: "Sofía N.", // por ahora fijo
+      price: 12000,
     };
 
     console.log(newTrip);
-
-    setTrips((prev) => [newTrip, ...prev]);
+    addTrip(newTrip);
 
     // limpiar formulario
     setFrom("");
@@ -83,152 +86,121 @@ export default function AddTripScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#e8f0ff" }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+    <ImageBackground source={images.bgLogin} style={{ flex: 1 }} resizeMode="cover">
+      {/* SCRIM igual que en HomePassenger */}
+      <View style={styles.scrim} />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* Tarjeta grande de cabecera */}
-        <View style={styles.cardHeader}>
-          <View style={styles.headerIconsRow}>
-            <View style={styles.roundIconSmall}>
-              <Ionicons name="settings-outline" size={18} color={PRIMARY} />
+        <ScrollView
+          contentContainerStyle={styles.screen}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Tarjeta cabecera */}
+          <View style={styles.cardHeader}>
+            <View style={styles.headerIconsRow}>
+              <View style={styles.roundIconSmall}>
+                <Ionicons name="settings-outline" size={18} color={PRIMARY} />
+              </View>
+              <View style={styles.roundIconSmall}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={18}
+                  color={PRIMARY}
+                />
+              </View>
             </View>
-            <View style={styles.roundIconSmall}>
-              <Ionicons name="information-circle-outline" size={18} color={PRIMARY} />
+
+            <Text style={styles.headerTitle}>Conductor</Text>
+
+            <View style={styles.carIconWrap}>
+              <MaterialIcons
+                name="directions-car-filled"
+                size={52}
+                color="#0f172a"
+              />
+              <Ionicons
+                name="navigate-outline"
+                size={36}
+                color={PRIMARY}
+                style={{ marginLeft: 8 }}
+              />
             </View>
           </View>
 
-          <Text style={styles.headerTitle}>Conductor</Text>
-
-          <View style={styles.carIconWrap}>
-            <MaterialIcons name="directions-car-filled" size={52} color="#0f172a" />
-            <Ionicons
-              name="navigate-outline"
-              size={36}
-              color={PRIMARY}
-              style={{ marginLeft: 8 }}
-            />
-          </View>
-        </View>
-
-        {/* Campos tipo formulario */}
-        <Field
-          icon={<Ionicons name="search-outline" size={20} color="#111827" />}
-          placeholder="De dónde salís?"
-          value={from}
-          onChangeText={setFrom}
-        />
-
-        <Field
-          icon={<Ionicons name="search-outline" size={20} color="#111827" />}
-          placeholder="Hasta dónde vas?"
-          value={to}
-          onChangeText={setTo}
-        />
-
-        <Field
-          icon={<Ionicons name="add-outline" size={22} color="#111827" />}
-          placeholder="Agregar indicaciones"
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-        />
-
-        {/* Fecha con picker */}
-        <Field
-          icon={<Ionicons name="calendar-outline" size={20} color="#111827" />}
-          placeholder="Fecha"
-          value={date}
-          editable={false}
-          onPress={() => openPicker("date")}
-        />
-
-        {/* Hora con picker */}
-        <Field
-          icon={<Ionicons name="time-outline" size={20} color="#111827" />}
-          placeholder="Hora de salida"
-          value={time}
-          editable={false}
-          onPress={() => openPicker("time")}
-        />
-
-        {/* Pasajeros – botón largo con − / número / + */}
-        <View style={styles.passengerBox}>
-          <Ionicons
-            name="person-outline"
-            size={22}
-            color="#0f172a"
-            style={{ marginRight: 8 }}
+          {/* Campos */}
+          <Field
+            icon={<Ionicons name="search-outline" size={20} color="#111827" />}
+            placeholder="De dónde salís?"
+            value={from}
+            onChangeText={setFrom}
           />
 
-          <View style={styles.counterWrap}>
-            <TouchableOpacity
-              style={styles.counterBtn}
-              onPress={() => setSeats((prev) => Math.max(1, prev - 1))}
-            >
-              <Text style={styles.counterBtnText}>−</Text>
-            </TouchableOpacity>
+          <Field
+            icon={<Ionicons name="search-outline" size={20} color="#111827" />}
+            placeholder="Hasta dónde vas?"
+            value={to}
+            onChangeText={setTo}
+          />
 
-            <Text style={styles.counterNumber}>{seats}</Text>
+          <Field
+            icon={<Ionicons name="add-outline" size={22} color="#111827" />}
+            placeholder="Agregar indicaciones"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+          />
 
-            <TouchableOpacity
-              style={styles.counterBtn}
-              onPress={() => setSeats((prev) => prev + 1)}
-            >
-              <Text style={styles.counterBtnText}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          <Field
+            icon={<Ionicons name="calendar-outline" size={20} color="#111827" />}
+            placeholder="Fecha"
+            value={date}
+            editable={false}
+            onPress={() => openPicker("date")}
+          />
 
-        {/* Botón Agregar */}
-        <TouchableOpacity style={styles.addButton} onPress={handleSubmit}>
-          <Ionicons name="location-outline" size={20} color="#fff" />
-          <Text style={styles.addButtonText}>Agregar</Text>
-        </TouchableOpacity>
+          <Field
+            icon={<Ionicons name="time-outline" size={20} color="#111827" />}
+            placeholder="Hora de salida"
+            value={time}
+            editable={false}
+            onPress={() => openPicker("time")}
+          />
 
-        {/* Lista de viajes agregados */}
-        {trips.length > 0 && (
-          <View style={styles.tripsSection}>
-            <Text style={styles.tripsTitle}>Viajes agregados</Text>
-            {trips.map((trip) => (
-              <View key={trip.id} style={styles.tripCard}>
-                <Text style={styles.tripRoute}>
-                  {trip.from} <Text style={{ color: "#9ca3af" }}>→</Text> {trip.to}
-                </Text>
-                <Text style={styles.tripInfo}>
-                  {trip.date} · {trip.time} · {trip.seats} lugares
-                </Text>
-                {trip.notes ? (
-                  <Text style={styles.tripNotes}>{trip.notes}</Text>
-                ) : null}
+          {/* Pasajeros pill */}
+          <View style={styles.fieldWrapper}>
+            <View style={styles.fieldInner}>
+              <View style={styles.fieldIcon}>
+                <Ionicons name="person-outline" size={20} color="#111827" />
               </View>
-            ))}
+              <PassengerCounter value={seats} onChange={setSeats} />
+            </View>
           </View>
+
+          {/* Botón Agregar */}
+          <TouchableOpacity style={styles.addButton} onPress={handleSubmit}>
+            <Ionicons name="location-outline" size={20} color="#fff" />
+            <Text style={styles.addButtonText}>Agregar</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
+
+        {showPicker && (
+          <DateTimePicker
+            value={new Date()}
+            mode={pickerMode}
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={onChangePicker}
+          />
         )}
-
-        <View style={{ height: 24 }} />
-      </ScrollView>
-
-      {/* Picker de fecha/hora */}
-      {showPicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode={pickerMode}
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          onChange={onChangePicker}
-        />
-      )}
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
-/**
- * Componente reutilizable para cada fila del formulario
- */
 function Field({
   icon,
   placeholder,
@@ -250,7 +222,10 @@ function Field({
       >
         <View style={styles.fieldIcon}>{icon}</View>
         <TextInput
-          style={[styles.input, multiline && { height: 70, textAlignVertical: "top" }]}
+          style={[
+            styles.input,
+            multiline && { height: 70, textAlignVertical: "top" },
+          ]}
           placeholder={placeholder}
           placeholderTextColor="#6b7280"
           value={value}
@@ -265,13 +240,19 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.62)",
+  },
+  screen: {
     paddingHorizontal: 18,
-    paddingTop: 28,
+    paddingTop:
+      Platform.OS === "android"
+        ? 24 + 16 // margen similar a HomePassenger
+        : 56,
     paddingBottom: 16,
   },
-
-  // CARD CABECERA
+  // CABECERA
   cardHeader: {
     backgroundColor: "#fff",
     borderRadius: 26,
@@ -279,7 +260,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 20,
     marginBottom: 18,
-
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
@@ -312,7 +292,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-
   // CAMPOS
   fieldWrapper: {
     marginBottom: 12,
@@ -339,54 +318,6 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontWeight: "600",
   },
-
-  // PASAJEROS
-  passengerBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 22,
-    marginBottom: 12,
-
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  counterWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-    backgroundColor: "#f8f9ff",
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-  counterBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#e8ecff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 8,
-  },
-  counterBtnText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#4f46e5",
-  },
-  counterNumber: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    minWidth: 20,
-    textAlign: "center",
-  },
-
   // BOTÓN
   addButton: {
     marginTop: 8,
@@ -397,7 +328,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: 6,
-
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2,
@@ -408,44 +338,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 17,
     fontWeight: "800",
-  },
-
-  // LISTA DE VIAJES
-  tripsSection: {
-    marginTop: 22,
-  },
-  tripsTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0f172a",
-    marginBottom: 10,
-  },
-  tripCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  tripRoute: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  tripInfo: {
-    marginTop: 4,
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  tripNotes: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#6b7280",
   },
 });
