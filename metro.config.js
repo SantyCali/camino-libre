@@ -1,8 +1,8 @@
+// metro.config.js
 const path = require("path");
 const fs = require("fs");
 const { getDefaultConfig } = require("expo/metro-config");
 const { resolve } = require("metro-resolver");
-const { getDefaultConfig } = require("@expo/metro-config");
 
 const projectRoot = __dirname;
 const config = getDefaultConfig(projectRoot);
@@ -10,13 +10,18 @@ const config = getDefaultConfig(projectRoot);
 const hasExpoImagePicker = fs.existsSync(
   path.join(projectRoot, "node_modules", "expo-image-picker")
 );
-const shimPath = path.join(projectRoot, "shims", "expo-image-picker", "index.js");
+
+const shimDir = path.join(projectRoot, "shims", "expo-image-picker");
+const shimPath = path.join(shimDir, "index.js");
 
 config.resolver = config.resolver || {};
 config.resolver.extraNodeModules = config.resolver.extraNodeModules || {};
 
 if (!hasExpoImagePicker) {
-  config.watchFolders = Array.from(new Set([...(config.watchFolders || []), path.join(projectRoot, "shims")]));
+  // Agregamos la carpeta de shims al watch
+  config.watchFolders = Array.from(
+    new Set([...(config.watchFolders || []), path.join(projectRoot, "shims")])
+  );
 
   const upstreamResolveRequest = config.resolver.resolveRequest;
 
@@ -34,11 +39,9 @@ if (!hasExpoImagePicker) {
 
     return resolve(context, moduleName, platform);
   };
-  config.resolver.extraNodeModules["expo-image-picker"] = path.resolve(
-    projectRoot,
-    "shims",
-    "expo-image-picker"
-  );
+
+  // Alias del paquete al directorio shim
+  config.resolver.extraNodeModules["expo-image-picker"] = shimDir;
 }
 
 module.exports = config;
