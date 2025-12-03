@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const { getDefaultConfig } = require("expo/metro-config");
 const { resolve } = require("metro-resolver");
+const { getDefaultConfig } = require("@expo/metro-config");
 
 const projectRoot = __dirname;
 const config = getDefaultConfig(projectRoot);
@@ -33,6 +34,11 @@ if (!hasExpoImagePicker) {
 
     return resolve(context, moduleName, platform);
   };
+  config.resolver.extraNodeModules["expo-image-picker"] = path.resolve(
+    projectRoot,
+    "shims",
+    "expo-image-picker"
+  );
 }
 
 module.exports = config;
