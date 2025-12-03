@@ -5,6 +5,7 @@ import {
   Image,
   ImageBackground,
   Platform,
+  Alert,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -31,6 +32,7 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState("");
   const [avatarUri, setAvatarUri] = useState(null);
   const [pendingAvatar, setPendingAvatar] = useState(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -90,8 +92,49 @@ export default function Profile() {
       const uri = result.assets[0].uri;
       setPendingAvatar(uri);
       setAvatarUri(uri);
+      setRemoveAvatar(false);
       setEditing(true);
     }
+  };
+
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      setPendingAvatar(uri);
+      setAvatarUri(uri);
+      setRemoveAvatar(false);
+      setEditing(true);
+    }
+  };
+
+  const clearPhoto = () => {
+    setAvatarUri(null);
+    setPendingAvatar(null);
+    setRemoveAvatar(true);
+    setEditing(true);
+  };
+
+  const handleAvatarActions = () => {
+    const buttons = [
+      { text: "Tomar foto", onPress: takePhoto },
+      { text: "Elegir de la galería", onPress: pickImage },
+    ];
+
+    if (avatarUri) {
+      buttons.unshift({ text: "Quitar foto", style: "destructive", onPress: clearPhoto });
+    }
+
+    buttons.push({ text: "Cancelar", style: "cancel" });
+
+    Alert.alert("Foto de perfil", "Elegí cómo actualizar tu foto", buttons);
   };
 
   const uploadAvatar = async (uri, uid) => {
@@ -109,6 +152,8 @@ export default function Profile() {
       let uploaded = profile?.avatarUrl || null;
       if (pendingAvatar) {
         uploaded = await uploadAvatar(pendingAvatar, user.uid);
+      } else if (removeAvatar) {
+        uploaded = null;
       }
 
       await updateProfileRTDB(user.uid, {
@@ -122,6 +167,7 @@ export default function Profile() {
         avatarUrl: uploaded,
       }));
       setPendingAvatar(null);
+      setRemoveAvatar(false);
       setEditing(false);
     } finally {
       setSaving(false);
@@ -132,6 +178,7 @@ export default function Profile() {
     setDisplayName(profile?.displayName || user?.email?.split("@")[0] || "");
     setAvatarUri(profile?.avatarUrl || null);
     setPendingAvatar(null);
+    setRemoveAvatar(false);
     setEditing(false);
   };
 
@@ -161,7 +208,7 @@ export default function Profile() {
           <TouchableOpacity
             style={styles.avatarWrap}
             activeOpacity={0.8}
-            onPress={pickImage}
+            onPress={handleAvatarActions}
           >
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
