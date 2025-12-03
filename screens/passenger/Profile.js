@@ -1,26 +1,139 @@
 // screens/passenger/Profile.js
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Image,
   ImageBackground,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { onAuthStateChanged } from "firebase/auth";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Ionicons } from "@expo/vector-icons";
 
 import COLORS from "../../constants/colors";
 import { images } from "../../assets";
+import { auth, storage } from "../../firebaseConfig";
+import { fetchMyProfileRTDB, updateProfileRTDB } from "../../services/auth_rtdb";
 
 export default function Profile() {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUri, setAvatarUri] = useState(null);
+  const [pendingAvatar, setPendingAvatar] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (current) => {
+      setUser(current);
+      if (!current) {
+        setProfile(null);
+        setLoadingProfile(false);
+        return;
+      }
+
+      setLoadingProfile(true);
+      const data = await fetchMyProfileRTDB(current.uid);
+      setProfile(data);
+      setDisplayName(data?.displayName || current.email?.split("@")[0] || "");
+      setAvatarUri(data?.avatarUrl || null);
+      setLoadingProfile(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const activeSince = useMemo(() => {
+    if (!profile?.createdAt && !user?.metadata?.creationTime) return "";
+
+    const sourceDate = profile?.createdAt
+      ? new Date(profile.createdAt)
+      : new Date(user.metadata.creationTime);
+    return sourceDate.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }, [profile?.createdAt, user?.metadata?.creationTime]);
+
   const actions = [
     { icon: "bookmarks-outline", label: "Viajes guardados" },
-    { icon: "pencil-outline", label: "Editar perfil" },
+    {
+      icon: "pencil-outline",
+      label: editing ? "Editando perfil" : "Editar perfil",
+      onPress: () => setEditing(true),
+    },
     { icon: "settings-outline", label: "Configuración" },
   ];
+
+  const pickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      setPendingAvatar(uri);
+      setAvatarUri(uri);
+      setEditing(true);
+    }
+  };
+
+  const uploadAvatar = async (uri, uid) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const avatarRef = storageRef(storage, `avatars/${uid}.jpg`);
+    await uploadBytes(avatarRef, blob);
+    return getDownloadURL(avatarRef);
+  };
+
+  const handleSave = async () => {
+    if (!user?.uid) return;
+    setSaving(true);
+    try {
+      let uploaded = profile?.avatarUrl || null;
+      if (pendingAvatar) {
+        uploaded = await uploadAvatar(pendingAvatar, user.uid);
+      }
+
+      await updateProfileRTDB(user.uid, {
+        displayName: displayName.trim() || user.email?.split("@")[0] || "",
+        avatarUrl: uploaded,
+      });
+
+      setProfile((prev) => ({
+        ...prev,
+        displayName: displayName.trim() || user.email?.split("@")[0] || "",
+        avatarUrl: uploaded,
+      }));
+      setPendingAvatar(null);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setDisplayName(profile?.displayName || user?.email?.split("@")[0] || "");
+    setAvatarUri(profile?.avatarUrl || null);
+    setPendingAvatar(null);
+    setEditing(false);
+  };
 
   return (
     <ImageBackground
@@ -40,17 +153,80 @@ export default function Profile() {
         </View>
 
         <View style={styles.headerCard}>
-          <View style={styles.avatarWrap}>
-            <Ionicons name="person" size={48} color="#3f1c6b" />
-          </View>
-          <Text style={styles.name}>Martín G.</Text>
-          <Text style={styles.email}>martin@example.com</Text>
-          <Text style={styles.meta}>Pasajero activo desde 2024</Text>
+          {loadingProfile && (
+            <View style={{ position: "absolute", top: 16, right: 16 }}>
+              <ActivityIndicator color={COLORS.primary} />
+            </View>
+          )}
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            activeOpacity={0.8}
+            onPress={pickImage}
+          >
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
+            ) : (
+              <Ionicons name="person" size={48} color="#3f1c6b" />
+            )}
+            <View style={styles.avatarBadge}>
+              <Ionicons name="camera" size={14} color={COLORS.primary} />
+            </View>
+          </TouchableOpacity>
+
+          {editing ? (
+            <View style={{ width: "100%", alignItems: "center", gap: 10 }}>
+              <TextInput
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="Tu nombre"
+                placeholderTextColor="#9aa0ad"
+                style={styles.input}
+              />
+              <Text style={styles.helper}>Actualizá tu nombre y foto</Text>
+            </View>
+          ) : (
+            <Text style={styles.name} numberOfLines={1}>
+              {displayName || "Mi perfil"}
+            </Text>
+          )}
+
+          <Text style={styles.email}>{user?.email || ""}</Text>
+          {!!activeSince && (
+            <Text style={styles.meta}>Pasajero activo desde {activeSince}</Text>
+          )}
+
+          {editing && (
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={[styles.btn, { backgroundColor: "#f3f4f6" }]}
+                onPress={handleCancel}
+                disabled={saving}
+              >
+                <Text style={[styles.btnText, { color: COLORS.sub }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btn, { flex: 1 }]}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.btnText}>Guardar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.list}>
           {actions.map((item) => (
-            <TouchableOpacity key={item.icon} style={styles.row} activeOpacity={0.8}>
+            <TouchableOpacity
+              key={item.icon}
+              style={styles.row}
+              activeOpacity={0.8}
+              onPress={item.onPress}
+            >
               <View style={styles.rowLeft}>
                 <Ionicons name={item.icon} size={20} color={COLORS.primary} />
                 <Text style={styles.rowLabel}>{item.label}</Text>
@@ -137,6 +313,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 6,
   },
+  avatarImg: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 48,
+  },
+  avatarBadge: {
+    position: "absolute",
+    right: -4,
+    bottom: -4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
   name: {
     fontSize: 22,
     fontWeight: "800",
@@ -150,6 +349,39 @@ const styles = StyleSheet.create({
     color: COLORS.sub,
     fontSize: 13,
     marginTop: 2,
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: COLORS.text,
+    backgroundColor: "#f8f9fb",
+  },
+  helper: {
+    fontSize: 12,
+    color: COLORS.sub,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+  },
+  btn: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    minWidth: 110,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnText: {
+    color: "#fff",
+    fontWeight: "700",
   },
   list: {
     backgroundColor: "#fff",
