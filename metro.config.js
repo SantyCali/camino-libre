@@ -16,7 +16,7 @@ if (!hasExpoImagePicker) {
   config.resolver.extraNodeModules["expo-image-picker"] = path.resolve(
     projectRoot,
     "shims",
-    "expo-image-picker.js"
+    "expo-image-picker"
   );
 }
 
