@@ -18,6 +18,10 @@ config.resolver = config.resolver || {};
 config.resolver.extraNodeModules = config.resolver.extraNodeModules || {};
 
 if (!hasExpoImagePicker) {
+  config.watchFolders = Array.from(new Set([...(config.watchFolders || []), path.join(projectRoot, "shims")]));
+
+  // Alias the package name to the shim directory so Metro can resolve it like a normal module.
+  config.resolver.extraNodeModules["expo-image-picker"] = shimDir;
   // Agregamos la carpeta de shims al watch
   config.watchFolders = Array.from(
     new Set([...(config.watchFolders || []), path.join(projectRoot, "shims")])
