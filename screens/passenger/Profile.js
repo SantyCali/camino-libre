@@ -209,6 +209,7 @@ export default function Profile() {
             style={styles.avatarWrap}
             activeOpacity={0.8}
             onPress={handleAvatarActions}
+            onPress={pickImage}
           >
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
