@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -174,6 +175,9 @@ export default function Profile() {
     } catch (error) {
       console.log("save profile:", error);
       Alert.alert("No se pudo guardar", "Intentá de nuevo en unos segundos.");
+      setPendingAvatar(null);
+      setRemoveAvatar(false);
+      setEditing(false);
     } finally {
       setSaving(false);
     }
@@ -238,6 +242,7 @@ export default function Profile() {
             style={styles.avatarWrap}
             activeOpacity={0.8}
             onPress={handleAvatarActions}
+            onPress={pickImage}
           >
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
