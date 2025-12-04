@@ -167,6 +167,14 @@ export default function Profile() {
         displayName: displayName.trim() || user.email?.split("@")[0] || "",
         avatarUrl: uploaded,
       }));
+      setAvatarUri(uploaded);
+      setDisplayName(displayName.trim() || user.email?.split("@")[0] || "");
+      setPendingAvatar(null);
+      setRemoveAvatar(false);
+      setEditing(false);
+    } catch (error) {
+      console.log("save profile:", error);
+      Alert.alert("No se pudo guardar", "Intentá de nuevo en unos segundos.");
       setPendingAvatar(null);
       setRemoveAvatar(false);
       setEditing(false);
@@ -192,6 +200,13 @@ export default function Profile() {
         onPress: async () => {
           try {
             await signOut(auth);
+            setUser(null);
+            setProfile(null);
+            setDisplayName("");
+            setAvatarUri(null);
+            setPendingAvatar(null);
+            setRemoveAvatar(false);
+            setEditing(false);
           } catch (e) {
             console.log("signOut:", e);
           }
