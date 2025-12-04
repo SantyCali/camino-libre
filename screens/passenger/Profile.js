@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { onAuthStateChanged } from "firebase/auth";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -182,6 +183,23 @@ export default function Profile() {
     setEditing(false);
   };
 
+  const handleLogout = () => {
+    Alert.alert("Cerrar sesión", "¿Querés salir de tu cuenta?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Cerrar sesión",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+          } catch (e) {
+            console.log("signOut:", e);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <ImageBackground
       source={images.bgLogin}
@@ -283,6 +301,15 @@ export default function Profile() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity
+          style={styles.logout}
+          activeOpacity={0.9}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#e53935" />
+          <Text style={styles.logoutText}>Cerrar sesión</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.cta} activeOpacity={0.9}>
           <View style={styles.ctaIconWrap}>
@@ -493,5 +520,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.sub,
     marginTop: 2,
+  },
+  logout: {
+    marginTop: -4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 14,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#e53935",
   },
 });
