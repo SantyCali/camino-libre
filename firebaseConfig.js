@@ -1,6 +1,7 @@
 // firebaseConfig.js
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { initializeAuth, getReactNativePersistence, getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getDatabase } from "firebase/database";
 import { Platform } from "react-native";
@@ -27,6 +28,7 @@ if (Platform.OS === "web") {
 }
 
 const rtdb = getDatabase(app);
+const storage = getStorage(app);
 
-export { app, auth, rtdb };
+export { app, auth, rtdb, storage };
 export default app;
