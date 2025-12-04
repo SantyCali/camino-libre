@@ -16,7 +16,6 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { onAuthStateChanged } from "firebase/auth";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -39,18 +38,28 @@ export default function Profile() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (current) => {
       setUser(current);
+
       if (!current) {
         setProfile(null);
+        setDisplayName("");
+        setAvatarUri(null);
         setLoadingProfile(false);
         return;
       }
 
       setLoadingProfile(true);
-      const data = await fetchMyProfileRTDB(current.uid);
-      setProfile(data);
-      setDisplayName(data?.displayName || current.email?.split("@")[0] || "");
-      setAvatarUri(data?.avatarUrl || null);
-      setLoadingProfile(false);
+      try {
+        const data = await fetchMyProfileRTDB(current.uid);
+        setProfile(data);
+        setDisplayName(
+          data?.displayName || current.email?.split("@")[0] || ""
+        );
+        setAvatarUri(data?.avatarUrl || null);
+      } catch (e) {
+        console.log("fetch profile:", e);
+      } finally {
+        setLoadingProfile(false);
+      }
     });
 
     return () => unsub();
@@ -130,7 +139,11 @@ export default function Profile() {
     ];
 
     if (avatarUri) {
-      buttons.unshift({ text: "Quitar foto", style: "destructive", onPress: clearPhoto });
+      buttons.unshift({
+        text: "Quitar foto",
+        style: "destructive",
+        onPress: clearPhoto,
+      });
     }
 
     buttons.push({ text: "Cancelar", style: "cancel" });
@@ -151,25 +164,42 @@ export default function Profile() {
     setSaving(true);
     try {
       let uploaded = profile?.avatarUrl || null;
+
       if (pendingAvatar) {
         uploaded = await uploadAvatar(pendingAvatar, user.uid);
       } else if (removeAvatar) {
         uploaded = null;
       }
 
+      const finalDisplayName =
+        displayName.trim() || user.email?.split("@")[0] || "";
+
       await updateProfileRTDB(user.uid, {
-        displayName: displayName.trim() || user.email?.split("@")[0] || "",
+        displayName: finalDisplayName,
         avatarUrl: uploaded,
       });
 
       setProfile((prev) => ({
-        ...prev,
-        displayName: displayName.trim() || user.email?.split("@")[0] || "",
+        ...(prev || {}),
+        displayName: finalDisplayName,
         avatarUrl: uploaded,
       }));
+      setDisplayName(finalDisplayName);
+      setAvatarUri(uploaded);
       setPendingAvatar(null);
       setRemoveAvatar(false);
       setEditing(false);
+    } catch (error) {
+      console.log(
+        "save profile:",
+        error.code,
+        error.message,
+        error.customData || error
+      );
+      Alert.alert(
+        "No se pudo guardar",
+        "Intentá de nuevo en unos segundos."
+      );
     } finally {
       setSaving(false);
     }
@@ -192,6 +222,15 @@ export default function Profile() {
         onPress: async () => {
           try {
             await signOut(auth);
+
+            // limpiar estado local para que la UI se actualice sin reiniciar
+            setUser(null);
+            setProfile(null);
+            setDisplayName("");
+            setAvatarUri(null);
+            setPendingAvatar(null);
+            setRemoveAvatar(false);
+            setEditing(false);
           } catch (e) {
             console.log("signOut:", e);
           }
@@ -227,7 +266,6 @@ export default function Profile() {
             style={styles.avatarWrap}
             activeOpacity={0.8}
             onPress={handleAvatarActions}
-            onPress={pickImage}
           >
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
@@ -268,7 +306,9 @@ export default function Profile() {
                 onPress={handleCancel}
                 disabled={saving}
               >
-                <Text style={[styles.btnText, { color: COLORS.sub }]}>Cancelar</Text>
+                <Text style={[styles.btnText, { color: COLORS.sub }]}>
+                  Cancelar
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btn, { flex: 1 }]}
