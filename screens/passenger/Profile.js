@@ -211,6 +211,234 @@ export default function Profile() {
     ]);
   };
 
+
+// 👇 IMPORTANTE: recibimos navigation
+export default function Profile({ navigation }) {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUri, setAvatarUri] = useState(null);
+  const [pendingAvatar, setPendingAvatar] = useState(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (current) => {
+      setUser(current);
+
+      if (!current) {
+        setProfile(null);
+        setDisplayName("");
+        setAvatarUri(null);
+        setLoadingProfile(false);
+        return;
+      }
+
+      setLoadingProfile(true);
+      try {
+        const data = await fetchMyProfileRTDB(current.uid);
+        setProfile(data);
+        setDisplayName(
+          data?.displayName || current.email?.split("@")[0] || ""
+        );
+        setAvatarUri(data?.avatarUrl || null);
+      } catch (e) {
+        console.log("fetch profile:", e);
+      } finally {
+        setLoadingProfile(false);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  const activeSince = useMemo(() => {
+    if (!profile?.createdAt && !user?.metadata?.creationTime) return "";
+
+    const sourceDate = profile?.createdAt
+      ? new Date(profile.createdAt)
+      : new Date(user.metadata.creationTime);
+    return sourceDate.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }, [profile?.createdAt, user?.metadata?.creationTime]);
+
+  const actions = [
+    { icon: "bookmarks-outline", label: "Viajes guardados" },
+    {
+      icon: "pencil-outline",
+      label: editing ? "Editando perfil" : "Editar perfil",
+      onPress: () => setEditing(true),
+    },
+    { icon: "settings-outline", label: "Configuración" },
+  ];
+
+  const pickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      setPendingAvatar(uri);
+      setAvatarUri(uri);
+      setRemoveAvatar(false);
+      setEditing(true);
+    }
+  };
+
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      setPendingAvatar(uri);
+      setAvatarUri(uri);
+      setRemoveAvatar(false);
+      setEditing(true);
+    }
+  };
+
+  const clearPhoto = () => {
+    setAvatarUri(null);
+    setPendingAvatar(null);
+    setRemoveAvatar(true);
+    setEditing(true);
+  };
+
+  const handleAvatarActions = () => {
+    const buttons = [
+      { text: "Tomar foto", onPress: takePhoto },
+      { text: "Elegir de la galería", onPress: pickImage },
+    ];
+
+    if (avatarUri) {
+      buttons.unshift({
+        text: "Quitar foto",
+        style: "destructive",
+        onPress: clearPhoto,
+      });
+    }
+
+    buttons.push({ text: "Cancelar", style: "cancel" });
+
+    Alert.alert("Foto de perfil", "Elegí cómo actualizar tu foto", buttons);
+  };
+
+  const uploadAvatar = async (uri, uid) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const avatarRef = storageRef(storage, `avatars/${uid}.jpg`);
+    await uploadBytes(avatarRef, blob);
+    return getDownloadURL(avatarRef);
+  };
+
+  const handleSave = async () => {
+    if (!user?.uid) return;
+    setSaving(true);
+    try {
+      let uploaded = profile?.avatarUrl || null;
+
+      if (pendingAvatar) {
+        uploaded = await uploadAvatar(pendingAvatar, user.uid);
+      } else if (removeAvatar) {
+        uploaded = null;
+      }
+
+      const finalDisplayName =
+        displayName.trim() || user.email?.split("@")[0] || "";
+
+      await updateProfileRTDB(user.uid, {
+        displayName: finalDisplayName,
+        avatarUrl: uploaded,
+      });
+
+      setProfile((prev) => ({
+        ...(prev || {}),
+        displayName: finalDisplayName,
+        avatarUrl: uploaded,
+      }));
+      setDisplayName(finalDisplayName);
+      setAvatarUri(uploaded);
+      setPendingAvatar(null);
+      setRemoveAvatar(false);
+      setEditing(false);
+    } catch (error) {
+      console.log(
+        "save profile:",
+        error.code,
+        error.message,
+        error.customData || error
+      );
+      Alert.alert(
+        "No se pudo guardar",
+        "Intentá de nuevo en unos segundos."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setDisplayName(profile?.displayName || user?.email?.split("@")[0] || "");
+    setAvatarUri(profile?.avatarUrl || null);
+    setPendingAvatar(null);
+    setRemoveAvatar(false);
+    setEditing(false);
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Cerrar sesión", "¿Querés salir de tu cuenta?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Cerrar sesión",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+
+            // limpiar estado local
+            setUser(null);
+            setProfile(null);
+            setDisplayName("");
+            setAvatarUri(null);
+            setPendingAvatar(null);
+            setRemoveAvatar(false);
+            setEditing(false);
+
+            // navegar al Login reseteando el stack padre
+            const stackNav = navigation.getParent();
+            if (stackNav) {
+              stackNav.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
+            } else {
+              navigation.navigate("Login");
+            }
+          } catch (e) {
+            console.log("signOut:", e);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <ImageBackground
       source={images.bgLogin}
@@ -279,6 +507,9 @@ export default function Profile() {
                 disabled={saving}
               >
                 <Text style={[styles.btnText, { color: COLORS.sub }]}>Cancelar</Text>
+                <Text style={[styles.btnText, { color: COLORS.sub }]}>
+                  Cancelar
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btn, { flex: 1 }]}
