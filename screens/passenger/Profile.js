@@ -24,7 +24,8 @@ import { images } from "../../assets";
 import { auth, storage } from "../../firebaseConfig";
 import { fetchMyProfileRTDB, updateProfileRTDB } from "../../services/auth_rtdb";
 
-export default function Profile() {
+// 👇 IMPORTANTE: recibimos navigation
+export default function Profile({ navigation }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -223,7 +224,7 @@ export default function Profile() {
           try {
             await signOut(auth);
 
-            // limpiar estado local para que la UI se actualice sin reiniciar
+            // limpiar estado local
             setUser(null);
             setProfile(null);
             setDisplayName("");
@@ -231,6 +232,17 @@ export default function Profile() {
             setPendingAvatar(null);
             setRemoveAvatar(false);
             setEditing(false);
+
+            // navegar al Login reseteando el stack padre
+            const stackNav = navigation.getParent();
+            if (stackNav) {
+              stackNav.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
+            } else {
+              navigation.navigate("Login");
+            }
           } catch (e) {
             console.log("signOut:", e);
           }
