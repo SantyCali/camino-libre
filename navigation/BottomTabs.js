@@ -9,10 +9,12 @@ import AddTripScreen from "../screens/driver/AddTripScreen";
 import Trips from "../screens/passenger/Trips";
 import TripDetail from "../screens/passenger/TripDetail";
 import Chats from "../screens/passenger/Chats";
+import ChatScreen from "../screens/passenger/ChatScreen";
 import Profile from "../screens/passenger/Profile";
 
 const Tab = createBottomTabNavigator();
 const TripsStack = createNativeStackNavigator();
+const ChatStack = createNativeStackNavigator();
 
 function TripsNavigator() {
   return (
@@ -20,6 +22,15 @@ function TripsNavigator() {
       <TripsStack.Screen name="Trips" component={Trips} />
       <TripsStack.Screen name="TripDetail" component={TripDetail} />
     </TripsStack.Navigator>
+  );
+}
+
+function ChatNavigator() {
+  return (
+    <ChatStack.Navigator screenOptions={{ headerShown: false }}>
+      <ChatStack.Screen name="ChatsList" component={Chats} />
+      <ChatStack.Screen name="ChatScreen" component={ChatScreen} />
+    </ChatStack.Navigator>
   );
 }
 
@@ -96,7 +107,7 @@ export default function BottomTabs() {
       <Tab.Screen name="Inicio" component={HomePassenger} />
       <Tab.Screen name="Agregar" component={AddTripScreen} />
       <Tab.Screen name="Viajes" component={TripsNavigator} />
-      <Tab.Screen name="Chats" component={Chats} />
+      <Tab.Screen name="Chats" component={ChatNavigator} />
       <Tab.Screen name="Perfil" component={Profile} />
     </Tab.Navigator>
   );
