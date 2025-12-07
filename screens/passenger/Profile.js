@@ -2,6 +2,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
+  ImageBackground,
+  Platform,
   Image,
   ImageBackground,
   Platform,
@@ -23,6 +27,222 @@ import COLORS from "../../constants/colors";
 import { images } from "../../assets";
 import { auth, storage } from "../../firebaseConfig";
 import { fetchMyProfileRTDB, updateProfileRTDB } from "../../services/auth_rtdb";
+
+export default function Profile({ navigation }) {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUri, setAvatarUri] = useState(null);
+  const [pendingAvatar, setPendingAvatar] = useState(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (current) => {
+      setUser(current);
+
+      if (!current) {
+        setProfile(null);
+        setLoadingProfile(false);
+        return;
+      }
+
+      setLoadingProfile(true);
+      const data = await fetchMyProfileRTDB(current.uid);
+      setProfile(data);
+      setDisplayName(data?.displayName || current.email?.split("@")[0] || "");
+      setAvatarUri(data?.avatarUrl || null);
+      setLoadingProfile(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const activeSince = useMemo(() => {
+    if (!profile?.createdAt && !user?.metadata?.creationTime) return "";
+
+    const sourceDate = profile?.createdAt
+      ? new Date(profile.createdAt)
+      : new Date(user.metadata.creationTime);
+
+    return sourceDate.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }, [profile?.createdAt, user?.metadata?.creationTime]);
+
+  const actions = [
+    { icon: "bookmarks-outline", label: "Viajes guardados" },
+    {
+      icon: "pencil-outline",
+      label: editing ? "Editando perfil" : "Editar perfil",
+      onPress: () => setEditing(true),
+    },
+    { icon: "settings-outline", label: "Configuración" },
+  ];
+
+  const pickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      setPendingAvatar(uri);
+      setAvatarUri(uri);
+      setRemoveAvatar(false);
+      setEditing(true);
+    }
+  };
+
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      setPendingAvatar(uri);
+      setAvatarUri(uri);
+      setRemoveAvatar(false);
+      setEditing(true);
+    }
+  };
+
+  const clearPhoto = () => {
+    setAvatarUri(null);
+    setPendingAvatar(null);
+    setRemoveAvatar(true);
+    setEditing(true);
+  };
+
+  const handleAvatarActions = async () => {
+    const hasAvatar = !!avatarUri;
+    const buttons = [
+      {
+        text: "Tomar foto",
+        onPress: takePhoto,
+      },
+      {
+        text: "Elegir de la galería",
+        onPress: pickImage,
+      },
+      {
+        text: "Cancelar",
+        style: "cancel",
+      },
+    ];
+
+    if (hasAvatar) {
+      buttons.splice(2, 0, {
+        text: "Quitar foto",
+        style: "destructive",
+        onPress: clearPhoto,
+      });
+    }
+
+    Alert.alert("Foto de perfil", "Elegí cómo actualizar tu foto", buttons);
+  };
+
+  const uploadAvatar = async (uri, uid) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const avatarRef = storageRef(storage, `avatars/${uid}.jpg`);
+    await uploadBytes(avatarRef, blob);
+    return getDownloadURL(avatarRef);
+  };
+
+  const handleSave = async () => {
+    if (!user?.uid) return;
+    setSaving(true);
+
+    try {
+      let uploaded = profile?.avatarUrl || null;
+
+      if (pendingAvatar) {
+        uploaded = await uploadAvatar(pendingAvatar, user.uid);
+      } else if (removeAvatar) {
+        uploaded = null;
+      }
+
+      const nextName = displayName.trim() || user.email?.split("@")[0] || "";
+
+      await updateProfileRTDB(user.uid, {
+        displayName: nextName,
+        avatarUrl: uploaded,
+      });
+
+      setProfile((prev) => ({
+        ...prev,
+        displayName: nextName,
+        avatarUrl: uploaded,
+      }));
+      setAvatarUri(uploaded);
+      setDisplayName(nextName);
+      setPendingAvatar(null);
+      setRemoveAvatar(false);
+      setEditing(false);
+    } catch (error) {
+      console.log("save profile:", error);
+      Alert.alert("No se pudo guardar", "Intentá de nuevo en unos segundos.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setDisplayName(profile?.displayName || user?.email?.split("@")[0] || "");
+    setAvatarUri(profile?.avatarUrl || null);
+    setPendingAvatar(null);
+    setRemoveAvatar(false);
+    setEditing(false);
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Cerrar sesión", "¿Querés salir de tu cuenta?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Cerrar sesión",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+            setUser(null);
+            setProfile(null);
+            setDisplayName("");
+            setAvatarUri(null);
+            setPendingAvatar(null);
+            setRemoveAvatar(false);
+            setEditing(false);
+            navigation?.reset?.({
+              index: 0,
+              routes: [{ name: "Splash" }],
+            });
+          } catch (e) {
+            console.log("signOut:", e);
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <ImageBackground source={images.bgLogin} style={styles.background} resizeMode="cover">
+      <View style={styles.scrim} />
+
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -462,6 +682,7 @@ export default function Profile({ navigation }) {
               <ActivityIndicator color={COLORS.primary} />
             </View>
           )}
+
           <TouchableOpacity
             style={styles.avatarWrap}
             activeOpacity={0.8}
@@ -543,6 +764,7 @@ export default function Profile({ navigation }) {
           ))}
         </View>
 
+        <TouchableOpacity style={styles.logout} activeOpacity={0.9} onPress={handleLogout}>
         <TouchableOpacity
           style={styles.logout}
           activeOpacity={0.9}
@@ -558,6 +780,7 @@ export default function Profile({ navigation }) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.ctaTitle}>¿Sos conductor o conductora?</Text>
+            <Text style={styles.ctaSubtitle}>Postulate para manejar con Camino Libre</Text>
             <Text style={styles.ctaSubtitle}>
               Postulate para manejar con Camino Libre
             </Text>
@@ -580,6 +803,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 18,
+    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 18 : 64,
     paddingTop:
       Platform.OS === "android"
         ? (StatusBar.currentHeight ?? 0) + 18
@@ -611,6 +835,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 26,
     paddingHorizontal: 18,
+    gap: 12,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 10,
     gap: 6,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 10 },
@@ -622,6 +852,9 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
+    backgroundColor: "#f6f1ff",
+    borderWidth: 2,
+    borderColor: "#efe6ff",
     backgroundColor: "#f1edff",
     borderWidth: 2,
     borderColor: "#e3dafc",
@@ -754,6 +987,14 @@ const styles = StyleSheet.create({
   },
   ctaTitle: {
     fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  ctaSubtitle: {
+    color: COLORS.sub,
+    fontSize: 13,
+  },
+  logout: {
     color: COLORS.text,
     fontWeight: "800",
   },
@@ -769,12 +1010,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
     backgroundColor: "#fff",
+    borderRadius: 14,
     borderRadius: 16,
     paddingVertical: 14,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
+    elevation: 10,
+  },
+  logoutText: {
+    color: "#e53935",
+    fontWeight: "700",
+    fontSize: 15,
     elevation: 8,
   },
   logoutText: {
